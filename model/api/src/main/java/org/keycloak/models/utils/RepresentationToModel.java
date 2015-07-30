@@ -18,6 +18,7 @@ import org.keycloak.models.ModelException;
 import org.keycloak.models.PasswordPolicy;
 import org.keycloak.models.ProtocolMapperModel;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.RoleModel;
 import org.keycloak.models.UserConsentModel;
 import org.keycloak.models.UserCredentialModel;
@@ -38,6 +39,7 @@ import org.keycloak.representations.idm.IdentityProviderRepresentation;
 import org.keycloak.representations.idm.OAuthClientRepresentation;
 import org.keycloak.representations.idm.ProtocolMapperRepresentation;
 import org.keycloak.representations.idm.RealmRepresentation;
+import org.keycloak.representations.idm.RequiredActionProviderRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.ScopeMappingRepresentation;
 import org.keycloak.representations.idm.SocialLinkRepresentation;
@@ -297,6 +299,14 @@ public class RepresentationToModel {
         }
 
         importAuthenticationFlows(newRealm, rep);
+        if (rep.getRequiredActions() != null) {
+            for (RequiredActionProviderRepresentation action : rep.getRequiredActions()) {
+                RequiredActionProviderModel model = toModel(action);
+                newRealm.addRequiredActionProvider(model);
+            }
+        } else {
+            DefaultRequiredActions.addActions(newRealm);
+        }
     }
 
     public static void importAuthenticationFlows(RealmModel newRealm, RealmRepresentation rep) {
@@ -615,6 +625,7 @@ public class RepresentationToModel {
         if (resourceRep.getBaseUrl() != null) client.setBaseUrl(resourceRep.getBaseUrl());
         if (resourceRep.isBearerOnly() != null) client.setBearerOnly(resourceRep.isBearerOnly());
         if (resourceRep.isConsentRequired() != null) client.setConsentRequired(resourceRep.isConsentRequired());
+        if (resourceRep.isServiceAccountsEnabled() != null) client.setServiceAccountsEnabled(resourceRep.isServiceAccountsEnabled());
         if (resourceRep.isDirectGrantsOnly() != null) client.setDirectGrantsOnly(resourceRep.isDirectGrantsOnly());
         if (resourceRep.isPublicClient() != null) client.setPublicClient(resourceRep.isPublicClient());
         if (resourceRep.isFrontchannelLogout() != null) client.setFrontchannelLogout(resourceRep.isFrontchannelLogout());
@@ -704,6 +715,7 @@ public class RepresentationToModel {
         if (rep.isEnabled() != null) resource.setEnabled(rep.isEnabled());
         if (rep.isBearerOnly() != null) resource.setBearerOnly(rep.isBearerOnly());
         if (rep.isConsentRequired() != null) resource.setConsentRequired(rep.isConsentRequired());
+        if (rep.isServiceAccountsEnabled() != null) resource.setServiceAccountsEnabled(rep.isServiceAccountsEnabled());
         if (rep.isDirectGrantsOnly() != null) resource.setDirectGrantsOnly(rep.isDirectGrantsOnly());
         if (rep.isPublicClient() != null) resource.setPublicClient(rep.isPublicClient());
         if (rep.isFullScopeAllowed() != null) resource.setFullScopeAllowed(rep.isFullScopeAllowed());
@@ -890,6 +902,14 @@ public class RepresentationToModel {
                 user.addConsent(consentModel);
             }
         }
+        if (userRep.getServiceAccountClientId() != null) {
+            String clientId = userRep.getServiceAccountClientId();
+            ClientModel client = clientMap.get(clientId);
+            if (client == null) {
+                throw new RuntimeException("Unable to find client specified for service account link. Client: " + clientId);
+            }
+            user.setServiceAccountClientLink(client.getId());;
+        }
         return user;
     }
 
@@ -1072,6 +1092,17 @@ public class RepresentationToModel {
         AuthenticatorConfigModel model = new AuthenticatorConfigModel();
         model.setAlias(rep.getAlias());
         model.setConfig(rep.getConfig());
+        return model;
+    }
+
+    public static RequiredActionProviderModel toModel(RequiredActionProviderRepresentation rep) {
+        RequiredActionProviderModel model = new RequiredActionProviderModel();
+        model.setConfig(rep.getConfig());
+        model.setDefaultAction(rep.isDefaultAction());
+        model.setEnabled(rep.isEnabled());
+        model.setProviderId(rep.getProviderId());
+        model.setName(rep.getName());
+        model.setAlias(rep.getAlias());
         return model;
     }
 

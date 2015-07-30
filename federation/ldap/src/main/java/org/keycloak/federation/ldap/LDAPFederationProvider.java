@@ -301,6 +301,12 @@ public class LDAPFederationProvider implements UserFederationProvider {
             return null;
         }
 
+        // Check here if user already exists
+        String ldapUsername = LDAPUtils.getUsername(ldapUser, ldapIdentityStore.getConfig());
+        if (session.userStorage().getUserByUsername(ldapUsername, realm) != null) {
+            throw new ModelDuplicateException("User with username '" + ldapUsername + "' already exists in Keycloak. It conflicts with LDAP user with email '" + email + "'");
+        }
+
         return importUserFromLDAP(session, realm, ldapUser);
     }
 
@@ -428,13 +434,6 @@ public class LDAPFederationProvider implements UserFederationProvider {
 
         LDAPObject ldapUser = ldapQuery.getFirstResult();
         if (ldapUser == null) {
-            return null;
-        }
-
-        // KEYCLOAK-808: Should we allow case-sensitivity to be configurable?
-        String ldapUsername = LDAPUtils.getUsername(ldapUser, ldapIdentityStore.getConfig());
-        if (!username.equals(ldapUsername)) {
-            logger.warnf("User found in LDAP but with different username. LDAP username: %s, Searched username: %s", username, ldapUsername);
             return null;
         }
 

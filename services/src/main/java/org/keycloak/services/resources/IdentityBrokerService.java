@@ -144,7 +144,6 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
             Response response = identityProvider.performLogin(createAuthenticationRequest(providerId, clientSessionCode));
 
             if (response != null) {
-                this.event.success();
                 if (isDebugEnabled()) {
                     LOGGER.debugf("Identity provider [%s] is going to send a request [%s].", identityProvider, response);
                 }
@@ -256,6 +255,9 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
         }
 
         ClientSessionModel clientSession = clientCode.getClientSession();
+
+        session.getContext().setClient(clientSession.getClient());
+
         context.getIdp().preprocessFederatedIdentity(session, realmModel, context);
         Set<IdentityProviderMapperModel> mappers = realmModel.getIdentityProviderMappersByAlias(context.getIdpConfig().getAlias());
         if (mappers != null) {

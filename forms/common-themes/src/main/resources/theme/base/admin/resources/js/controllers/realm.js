@@ -7,9 +7,6 @@ module.controller('GlobalCtrl', function($scope, $http, Auth, WhoAmI, Current, $
     $scope.resourceUrl = resourceUrl;
     $scope.auth = Auth;
     $scope.serverInfo = ServerInfo.get();
-    $scope.serverInfoUpdate = function() {
-        $scope.serverInfo = ServerInfo.get();
-    };
 
     function hasAnyAccess() {
         var realmAccess = Auth.user && Auth.user['realm_access'];
@@ -83,7 +80,7 @@ module.controller('GlobalCtrl', function($scope, $http, Auth, WhoAmI, Current, $
         get impersonation() {
             return getAccess('impersonation');
         }
-    }
+    };
 
     $scope.$watch(function() {
         return $location.path();
@@ -111,6 +108,37 @@ module.controller('HomeCtrl', function(Realm, Auth, $location) {
             $location.url('/realms');
         }
     });
+});
+
+module.controller('RealmTabCtrl', function(Dialog, $scope, Current, Realm, Notifications, $location) {
+    $scope.removeRealm = function() {
+        Dialog.confirmDelete(Current.realm.realm, 'realm', function() {
+            Realm.remove({ id : Current.realm.realm }, function() {
+                Current.realms = Realm.query();
+                Notifications.success("The realm has been deleted.");
+                $location.url("/");
+            });
+        });
+    };
+});
+
+module.controller('ServerInfoCtrl', function($scope, ServerInfo) {
+    ServerInfo.reload();
+
+    $scope.serverInfo = ServerInfo.get();
+
+    $scope.$watch($scope.serverInfo, function() {
+        $scope.providers = [];
+        for(var spi in $scope.serverInfo.providers) {
+            var p = angular.copy($scope.serverInfo.providers[spi]);
+            p.name = spi;
+            $scope.providers.push(p)
+        }
+    });
+
+    $scope.serverInfoReload = function() {
+        ServerInfo.reload();
+    }
 });
 
 module.controller('RealmListCtrl', function($scope, Realm, Current) {
@@ -285,16 +313,6 @@ module.controller('RealmDetailCtrl', function($scope, Current, Realm, realm, ser
 
     $scope.cancel = function() {
         window.history.back();
-    };
-
-    $scope.remove = function() {
-        Dialog.confirmDelete($scope.realm.realm, 'realm', function() {
-            Realm.remove({ id : $scope.realm.realm }, function() {
-                Current.realms = Realm.query();
-                Notifications.success("The realm has been deleted.");
-                $location.url("/");
-            });
-        });
     };
 });
 
@@ -593,6 +611,22 @@ module.controller('RealmDefaultRolesCtrl', function ($scope, Realm, realm, clien
 
 });
 
+
+
+module.controller('IdentityProviderTabCtrl', function(Dialog, $scope, Current, Notifications, $location) {
+    $scope.removeIdentityProvider = function() {
+        Dialog.confirmDelete($scope.identityProvider.alias, 'provider', function() {
+            $scope.identityProvider.$remove({
+                realm : Current.realm.realm,
+                alias : $scope.identityProvider.alias
+            }, function() {
+                $location.url("/realms/" + Current.realm.realm + "/identity-provider-settings");
+                Notifications.success("The identity provider has been deleted.");
+            });
+        });
+    };
+});
+
 module.controller('RealmIdentityProviderCtrl', function($scope, $filter, $upload, $http, $route, realm, instance, providerFactory, IdentityProvider, serverInfo, $location, Notifications, Dialog) {
     console.log('RealmIdentityProviderCtrl');
 
@@ -802,18 +836,6 @@ module.controller('RealmIdentityProviderCtrl', function($scope, $filter, $upload
         $location.url("/create/identity-provider/" + realm.realm + "/" + provider.id);
     };
 
-    $scope.remove = function() {
-        Dialog.confirmDelete($scope.identityProvider.alias, 'provider', function() {
-            $scope.identityProvider.$remove({
-                realm : realm.realm,
-                alias : $scope.identityProvider.alias
-            }, function() {
-                $location.url("/realms/" + realm.realm + "/identity-provider-settings");
-                Notifications.success("The client has been deleted.");
-            });
-        });
-    };
-
     $scope.save = function() {
         if ($scope.newIdentityProvider) {
             if (!$scope.identityProvider.alias) {
@@ -853,6 +875,18 @@ module.controller('RealmIdentityProviderCtrl', function($scope, $filter, $upload
 
     $scope.showPassword = function(flag) {
         $scope.hidePassword = flag;
+    };
+
+    $scope.removeIdentityProvider = function(identityProvider) {
+        Dialog.confirmDelete(identityProvider.alias, 'provider', function() {
+            IdentityProvider.remove({
+                realm : realm.realm,
+                alias : identityProvider.alias
+            }, function() {
+                $route.reload();
+                Notifications.success("The identity provider has been deleted.");
+            });
+        });
     };
 
 });
@@ -1046,16 +1080,21 @@ module.controller('RealmRevocationCtrl', function($scope, Realm, RealmPushRevoca
 });
 
 
-module.controller('RoleListCtrl', function($scope, $location, realm, roles) {
-
+module.controller('RoleListCtrl', function($scope, $route, Dialog, Notifications, realm, roles, RoleById) {
     $scope.realm = realm;
     $scope.roles = roles;
 
-    $scope.$watch(function() {
-        return $location.path();
-    }, function() {
-        $scope.path = $location.path().substring(1).split("/");
-    });
+    $scope.removeRole = function (role) {
+        Dialog.confirmDelete(role.name, 'role', function () {
+            RoleById.remove({
+                realm: realm.realm,
+                role: role.id
+            }, function () {
+                $route.reload();
+                Notifications.success("The role has been deleted.");
+            });
+        });
+    };
 });
 
 
@@ -1194,7 +1233,7 @@ module.controller('RealmEventsConfigCtrl', function($scope, eventsConfig, RealmE
         }
     });
 
-    $scope.eventListeners = serverInfo.eventListeners;
+    $scope.eventListeners = Object.keys(serverInfo.providers.eventsListener.providers);
 
     $scope.eventSelectOptions = {
         'multiple': true,

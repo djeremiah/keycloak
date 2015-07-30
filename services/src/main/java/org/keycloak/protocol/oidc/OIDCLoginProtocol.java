@@ -32,6 +32,7 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.protocol.LoginProtocol;
+import org.keycloak.protocol.RestartLoginCookie;
 import org.keycloak.services.managers.ClientSessionCode;
 import org.keycloak.services.managers.ResourceAdminManager;
 
@@ -124,6 +125,7 @@ public class OIDCLoginProtocol implements LoginProtocol {
             redirectUri.queryParam(OAuth2Constants.STATE, state);
         }
         session.sessions().removeClientSession(realm, clientSession);
+        RestartLoginCookie.expireRestartCookie(realm, session.getContext().getConnection(), uriInfo);
         return Response.status(302).location(redirectUri.build()).build();
     }
 
@@ -148,6 +150,8 @@ public class OIDCLoginProtocol implements LoginProtocol {
         UriBuilder redirectUri = UriBuilder.fromUri(redirect).queryParam(OAuth2Constants.ERROR, "access_denied");
         if (state != null)
             redirectUri.queryParam(OAuth2Constants.STATE, state);
+        session.sessions().removeClientSession(realm, clientSession);
+        RestartLoginCookie.expireRestartCookie(realm, session.getContext().getConnection(), uriInfo);
         Response.ResponseBuilder location = Response.status(302).location(redirectUri.build());
         return location.build();
     }

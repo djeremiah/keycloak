@@ -86,7 +86,6 @@ public class ResourceOwnerPasswordCredentialsGrantTest {
                 .client("resource-owner")
                 .user(userId)
                 .session(accessToken.getSessionState())
-                .detail(Details.AUTH_METHOD, "oauth_credentials")
                 .detail(Details.RESPONSE_TYPE, "token")
                 .detail(Details.TOKEN_ID, accessToken.getId())
                 .detail(Details.REFRESH_TOKEN_ID, refreshToken.getId())
@@ -123,7 +122,6 @@ public class ResourceOwnerPasswordCredentialsGrantTest {
         events.expectLogin()
                 .client("resource-owner")
                 .session(accessToken.getSessionState())
-                .detail(Details.AUTH_METHOD, "oauth_credentials")
                 .detail(Details.RESPONSE_TYPE, "token")
                 .detail(Details.TOKEN_ID, accessToken.getId())
                 .detail(Details.REFRESH_TOKEN_ID, refreshToken.getId())
@@ -146,6 +144,8 @@ public class ResourceOwnerPasswordCredentialsGrantTest {
                 .error(Errors.INVALID_TOKEN).assertEvent();
     }
 
+
+
     @Test
     public void grantAccessTokenInvalidClientCredentials() throws Exception {
         oauth.clientId("resource-owner");
@@ -166,6 +166,48 @@ public class ResourceOwnerPasswordCredentialsGrantTest {
     }
 
     @Test
+    public void grantAccessTokenVerifyEmail() throws Exception {
+
+        keycloakRule.update(new KeycloakRule.KeycloakSetup() {
+            @Override
+            public void config(RealmManager manager, RealmModel adminstrationRealm, RealmModel appRealm) {
+                appRealm.setVerifyEmail(true);
+            }
+        });
+
+
+        oauth.clientId("resource-owner");
+
+        OAuthClient.AccessTokenResponse response = oauth.doGrantAccessTokenRequest("secret", "test-user@localhost", "password");
+
+        assertEquals(400, response.getStatusCode());
+
+        assertEquals("invalid_grant", response.getError());
+        assertEquals("Account is not fully set up", response.getErrorDescription());
+
+        events.expectLogin()
+                .client("resource-owner")
+                .session((String) null)
+                .clearDetails()
+                .error(Errors.RESOLVE_REQUIRED_ACTIONS)
+                .user((String) null)
+                .assertEvent();
+
+        keycloakRule.update(new KeycloakRule.KeycloakSetup() {
+            @Override
+            public void config(RealmManager manager, RealmModel adminstrationRealm, RealmModel appRealm) {
+                appRealm.setVerifyEmail(false);
+                UserModel user = manager.getSession().users().getUserByEmail("test-user@localhost", appRealm);
+                user.removeRequiredAction(UserModel.RequiredAction.VERIFY_EMAIL);
+            }
+        });
+
+    }
+
+
+
+
+    @Test
     public void grantAccessTokenInvalidUserCredentials() throws Exception {
         oauth.clientId("resource-owner");
 
@@ -178,7 +220,6 @@ public class ResourceOwnerPasswordCredentialsGrantTest {
         events.expectLogin()
                 .client("resource-owner")
                 .session((String) null)
-                .detail(Details.AUTH_METHOD, "oauth_credentials")
                 .detail(Details.RESPONSE_TYPE, "token")
                 .removeDetail(Details.CODE_ID)
                 .removeDetail(Details.REDIRECT_URI)
@@ -201,7 +242,6 @@ public class ResourceOwnerPasswordCredentialsGrantTest {
                 .client("resource-owner")
                 .user((String) null)
                 .session((String) null)
-                .detail(Details.AUTH_METHOD, "oauth_credentials")
                 .detail(Details.RESPONSE_TYPE, "token")
                 .detail(Details.USERNAME, "invalid")
                 .removeDetail(Details.CODE_ID)
